@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta property="og:title" content="키즈존 300 지도">
+<meta property="og:description" content="아이와 가볼 만한 국내 여행지 300곳을 테마별로 보는 지도">
+<title>키즈존 300 지도</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Noto+Sans+KR:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+/* Layout: 왼쪽 안내·필터·목록 패널 + 오른쪽 지도. 폰에서는 지도 위, 목록 아래. */
+:root{
+  --bg:#f6f4ee; --panel:#fffdf8; --ink:#24302b; --muted:#6b756f; --line:#e3ded2;
+  --sea:#b9d6ee; --land:#f7f6f1; --land-edge:#9fb6c9; --other:#e9e7e1; --border:#b7a9cf; --lbl:#5c6670; --lbl-halo:#ffffff; --prov-lbl:#9a8fb3;
+  --accent:#1f6f5c; --chip:#f0ece2;
+  --f-display:"Gowun Dodum","Noto Sans KR",system-ui,sans-serif;
+  --f-body:"Noto Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#15191a; --panel:#1c2224; --ink:#e7ece8; --muted:#9aa5a0; --line:#2e3739;
+  --sea:#152634; --land:#262c2f; --land-edge:#3d5366; --other:#1d2124; --border:#5d5577; --lbl:#b7c0c6; --lbl-halo:#15191a; --prov-lbl:#8a80a6;
+  --accent:#62c3a6; --chip:#263033; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#15191a; --panel:#1c2224; --ink:#e7ece8; --muted:#9aa5a0; --line:#2e3739;
+  --sea:#152634; --land:#262c2f; --land-edge:#3d5366; --other:#1d2124; --border:#5d5577; --lbl:#b7c0c6; --lbl-halo:#15191a; --prov-lbl:#8a80a6;
+  --accent:#62c3a6; --chip:#263033; color-scheme:dark}
+html,body{height:100%}
+body{margin:0}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px}
+.app{display:grid;grid-template-columns:minmax(300px,380px) 1fr;height:100%}
+.side{display:flex;flex-direction:column;min-height:0;background:var(--panel);border-right:1px solid var(--line)}
+.head{padding-block:18px 12px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:16px;display:grid;gap:12px;border-bottom:1px solid var(--line)}
+.eyebrow{font-size:11px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+h1{font-family:var(--f-display);font-size:26px;line-height:1.15;margin:2px 0 0;text-wrap:balance;font-weight:400}
+.sub{color:var(--muted);font-size:12.5px;line-height:1.5;margin:0}
+.search{width:100%;box-sizing:border-box;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit}
+.search:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.row{display:flex;gap:8px;align-items:center}
+select{flex:1;min-width:0;padding:9px 10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font:inherit}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:var(--chip);color:var(--ink);font:inherit;font-size:12.5px;cursor:pointer}
+.chip .dot{width:10px;height:10px;border-radius:50%;background:var(--c)}
+.chip .n{color:var(--muted);font-variant-numeric:tabular-nums;font-size:11.5px}
+.chip[aria-pressed="false"]{opacity:.42}
+.chip[aria-pressed="false"] .dot{background:transparent;box-shadow:inset 0 0 0 2px var(--c)}
+.tools{display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--muted)}
+.linkbtn{background:none;border:0;color:var(--accent);font:inherit;font-size:12px;cursor:pointer;padding:2px 0}
+.list{overflow:auto;flex:1;min-height:0;padding:6px 0 16px}
+.zone-h{position:sticky;top:0;background:var(--panel);padding:10px 16px 6px max(16px,env(safe-area-inset-left,0px));font-size:12px;color:var(--muted);display:flex;justify-content:space-between;border-bottom:1px dashed var(--line);z-index:1}
+.zone-h b{color:var(--ink);font-weight:700;font-family:var(--f-display);font-size:14px}
+.item{display:grid;grid-template-columns:38px 1fr auto;gap:8px;align-items:center;width:100%;text-align:left;padding:8px 16px 8px max(16px,env(safe-area-inset-left,0px));border:0;background:none;color:inherit;font:inherit;cursor:pointer}
+.item:hover,.item.on{background:var(--chip)}
+.num{font-variant-numeric:tabular-nums;font-size:12px;color:var(--muted)}
+.nm{min-width:0}
+.nm strong{display:block;font-weight:500;line-height:1.35}
+.nm span{font-size:11.5px;color:var(--muted)}
+.tag{width:10px;height:10px;border-radius:50%;background:var(--c)}
+.empty{padding:24px 16px;color:var(--muted)}
+.mapwrap{position:relative;min-width:0}
+#map{position:absolute;inset:0;background:var(--sea)}
+.leaflet-container{font-family:var(--f-body);background:var(--sea)}
+.leaflet-popup-content-wrapper,.leaflet-popup-tip{background:var(--panel);color:var(--ink);box-shadow:0 6px 24px rgba(0,0,0,.18)}
+.leaflet-popup-content{margin:14px 16px;min-width:200px}
+.pop .t{font-family:var(--f-display);font-size:17px;line-height:1.3;margin:2px 0 4px}
+.pop .m{color:var(--muted);font-size:12px;line-height:1.6}
+.pop .badge{display:inline-flex;gap:5px;align-items:center;font-size:11.5px;padding:2px 8px;border-radius:999px;background:var(--chip)}
+.pop .badge i{width:8px;height:8px;border-radius:50%;background:var(--c)}
+.pop .warn{font-size:11px;color:var(--muted);margin-top:6px}
+.pop .links{display:flex;gap:6px;margin-top:10px}
+.pop .links a{flex:1;text-align:center;padding:6px 8px;border-radius:8px;background:var(--accent);color:var(--panel);text-decoration:none;font-size:12px;font-weight:500}
+.leaflet-bar a{background:var(--panel);color:var(--ink);border-color:var(--line)}
+.lbl{white-space:nowrap;font-size:12px;color:var(--lbl);font-weight:500;text-shadow:0 0 3px var(--lbl-halo),0 0 3px var(--lbl-halo),0 0 2px var(--lbl-halo);transform:translate(-50%,-50%);pointer-events:none;display:flex;align-items:center;gap:4px}
+.lbl.big{font-size:13.5px;font-weight:700;color:var(--ink)}
+.lbl.city::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--lbl);box-shadow:0 0 0 1.5px var(--lbl-halo)}
+.lbl.prov{font-size:15px;letter-spacing:.3em;color:var(--prov-lbl);font-weight:700}
+.z7 .c2,.z8 .c2{display:none}
+.z10 .prov,.z11 .prov,.z12 .prov,.z13 .prov,.z14 .prov,.z15 .prov,.z9 .prov{display:none}
+.z6 .c2,.z6 .c1{display:none}
+.credit{position:absolute;left:max(10px,env(safe-area-inset-left,0px));bottom:10px;z-index:500;font-size:10px;color:var(--muted)}
+.legend-note{position:absolute;left:max(10px,env(safe-area-inset-left,0px));bottom:10px;z-index:500;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:6px 10px;font-size:11.5px;color:var(--muted)}
+.count{font-variant-numeric:tabular-nums}
+@media (max-width:760px){
+  .app{grid-template-columns:1fr;grid-template-rows:auto 52vh auto;height:auto}
+  .side{display:contents}
+  .head{order:1;background:var(--panel)}
+  .mapwrap{order:2;height:52vh}
+  .list{order:3;background:var(--panel);overflow:visible}
+  .zone-h{top:0}
+}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style>
+
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="head">
+      <div>
+        <div class="eyebrow">KIDS ZONE · 국내 아이와 가볼 곳</div>
+        <h1>키즈존 300 지도</h1>
+        <p class="sub">가이드북 목차의 장소 300곳을 테마별로 지도에 표시했어요. 핀을 누르면 책 페이지와 길찾기 링크가 나옵니다.</p>
+      </div>
+      <input id="q" class="search" type="search" placeholder="장소·지역 검색 (예: 아쿠아, 가평, 펜션)" autocomplete="off">
+      <div class="row">
+        <select id="zone" aria-label="책의 권역"></select>
+      </div>
+      <div class="chips" id="chips" role="group" aria-label="테마"></div>
+      <div class="tools"><span><b class="count" id="cnt">300</b>곳 표시 중</span><button class="linkbtn" id="reset" type="button">필터 초기화</button></div>
+    </div>
+    <div class="list" id="list"></div>
+  </aside>
+  <main class="mapwrap">
+    <div id="map" aria-label="장소 지도"></div>
+    <div class="legend-note">테두리 점선 핀은 대략 위치</div>
+  </main>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const DATA=[[1,"서울","서울","도봉","둘리뮤지엄",78,37.6519,127.0275,"museum",1],[2,"서울","서울","영등포","캐리키즈카페(여의도IFC몰점)",79,37.5251,126.9255,"indoor",1],[3,"서울","서울","강북","북서울꿈의숲",80,37.6206,127.0408,"nature",1],[4,"서울","서울","광진","서울상상나라",81,37.548,127.079,"museum",1],[5,"서울","서울","성동","서울하수도과학관",82,37.5629,127.0636,"museum",0],[6,"서울","서울","노원","서울시립과학관",83,37.6382,127.0763,"museum",1],[7,"서울","서울","영등포","과자박물관 스위트팩토리",84,37.527,126.892,"museum",0],[8,"서울","서울","영등포","씨랄라 워터파크",85,37.526,126.886,"water",0],[9,"서울","서울","영등포","키즈앤키즈",86,37.517,126.903,"indoor",0],[10,"서울","서울","영등포","팡팡크루즈",87,37.528,126.934,"theme",0],[11,"서울","서울","서대문","청정원 요리공방",88,37.56,126.942,"farm",0],[12,"서울","서울","용산","국립중앙박물관 어린이박물관",89,37.524,126.98,"museum",1],[13,"서울","서울","용산","전쟁기념관 어린이박물관",90,37.5365,126.9773,"museum",1],[14,"서울","서울","용산","크라운해태 키즈뮤지엄",91,37.544,126.973,"museum",0],[15,"서울","서울","강남","코엑스아쿠아리움",92,37.5126,127.059,"animal",1],[16,"서울","서울","강남","고마워토토",93,37.498,127.028,"animal",0],[17,"서울","서울","강동","브이센터",94,37.53,127.124,"indoor",0],[18,"서울","서울","송파","키자니아 서울",95,37.513,127.104,"indoor",1],[19,"서울","서울","송파","송파파크하비오 워터킹덤",96,37.479,127.125,"water",1],[20,"서울","서울","종로","뮤지엄김치간",97,37.574,126.985,"museum",1],[21,"가평·포천 부근","경기","가평","강씨봉자연휴양림",100,37.97,127.404,"nature",0],[22,"가평·포천 부근","경기","가평","쁘띠프랑스",101,37.721,127.455,"theme",1],[23,"가평·포천 부근","경기","가평","아침고요수목원",102,37.744,127.353,"nature",1],[24,"가평·포천 부근","경기","가평","어린왕자의나무별펜션",103,37.75,127.45,"stay",0],[25,"가평·포천 부근","경기","가평","인터렉티브아트뮤지엄",104,37.74,127.43,"museum",0],[26,"가평·포천 부근","경기","가평","켄싱턴리조트 청평",105,37.69,127.4,"stay",0],[27,"가평·포천 부근","경기","가평","꿈의동산놀이공원",106,37.83,127.51,"theme",0],[28,"가평·포천 부근","경기","양평","양평오토캠핑장",107,37.49,127.49,"stay",0],[29,"가평·포천 부근","경기","남양주","아띠딸기농장",108,37.62,127.25,"farm",0],[30,"가평·포천 부근","경기","남양주","남양주어린이비전센터·라바파크",109,37.65,127.23,"indoor",0],[31,"가평·포천 부근","경기","남양주","미호박물관",110,37.558,127.31,"museum",0],[32,"가평·포천 부근","경기","남양주","별내블루베리농장",111,37.66,127.12,"farm",0],[33,"가평·포천 부근","경기","남양주","남양주임실치즈체험장",112,37.68,127.3,"farm",0],[34,"가평·포천 부근","경기","남양주","카페도자기마을",113,37.6,127.25,"farm",0],[35,"가평·포천 부근","경기","구리","구리타워·곤충생태관·신재생에너지홍보관",114,37.587,127.135,"museum",0],[36,"가평·포천 부근","경기","포천","사과깡패",115,37.9,127.2,"farm",0],[37,"가평·포천 부근","경기","포천","신북리조트 스프링폴",116,37.918,127.18,"water",0],[38,"가평·포천 부근","경기","포천","어메이징파크",117,37.945,127.305,"theme",0],[39,"가평·포천 부근","경기","포천","허브아일랜드",118,37.964,127.196,"theme",0],[40,"가평·포천 부근","경기","포천","호수창이예쁜가펜션",119,38.0,127.25,"stay",0],[41,"고양·파주 부근","경기","고양","배다골테마파크",122,37.7,126.86,"theme",0],[42,"고양·파주 부근","경기","고양","성연딸기체험농장",123,37.69,126.87,"farm",0],[43,"고양·파주 부근","경기","고양","고양어린이박물관",124,37.668,126.83,"museum",0],[44,"고양·파주 부근","경기","고양","고양낙농치즈테마체험장",125,37.7,126.8,"farm",0],[45,"고양·파주 부근","경기","고양","아쿠아플라넷 일산",126,37.664,126.756,"animal",1],[46,"고양·파주 부근","경기","고양","현대모터스튜디오 고양",127,37.669,126.747,"museum",1],[47,"고양·파주 부근","경기","고양","토이킹덤플레이",128,37.647,126.896,"indoor",1],[48,"고양·파주 부근","경기","고양","잭슨나인스",129,37.6476,126.895,"indoor",0],[49,"고양·파주 부근","경기","고양","챔피언1250",130,37.6464,126.8968,"indoor",0],[50,"고양·파주 부근","경기","고양","디데이하우스",131,37.66,126.77,"indoor",0],[51,"고양·파주 부근","경기","고양","콩순이키즈카페(일산장항점)",132,37.658,126.772,"indoor",0],[52,"고양·파주 부근","경기","파주","가을노을펜션",133,37.8,126.7,"stay",0],[53,"고양·파주 부근","경기","파주","뚜비아트아띠",134,37.788,126.697,"indoor",0],[54,"고양·파주 부근","경기","파주","모산목장",135,37.82,126.88,"farm",0],[55,"고양·파주 부근","경기","파주","수우원농장",136,37.85,126.8,"farm",0],[56,"고양·파주 부근","경기","파주","퍼스트가든",137,37.793,126.713,"theme",1],[57,"고양·파주 부근","경기","파주","평화랜드·평화누리공원",138,37.889,126.741,"nature",1],[58,"고양·파주 부근","경기","파주","피노지움",139,37.7886,126.699,"museum",0],[59,"고양·파주 부근","경기","파주","하니랜드",140,37.84,126.79,"theme",0],[60,"고양·파주 부근","경기","파주","한국근현대사박물관",141,37.788,126.695,"museum",1],[61,"고양·파주 부근","경기","파주","한립토이뮤지엄",142,37.7872,126.698,"museum",1],[62,"고양·파주 부근","경기","연천","에브라임캠핑장",143,38.05,127.05,"stay",0],[63,"고양·파주 부근","경기","연천","전곡선사박물관",144,38.013,127.065,"museum",1],[64,"고양·파주 부근","경기","연천","허브빌리지",145,38.1,127.02,"nature",0],[65,"고양·파주 부근","경기","동두천","경기북부어린이박물관",146,37.93,127.07,"museum",0],[66,"고양·파주 부근","경기","동두천","에코유캠핑장",147,37.92,127.1,"stay",0],[67,"고양·파주 부근","경기","양주","장흥아트파크",148,37.712,126.953,"museum",1],[68,"고양·파주 부근","경기","양주","조명박물관",149,37.75,127.03,"museum",0],[69,"김포·강화","경기","김포","김포아트빌리지",152,37.644,126.617,"museum",0],[70,"김포·강화","경기","김포","김포에코센터",153,37.71,126.62,"nature",0],[71,"김포·강화","경기","김포","태산패밀리파크",154,37.65,126.53,"theme",0],[72,"김포·강화","경기","김포","피싱파크 진산각",155,37.68,126.55,"theme",0],[73,"김포·강화","경기","김포","호텔마리나베이서울",156,37.6,126.76,"stay",0],[74,"김포·강화","인천","강화","아셀펜션",157,37.7,126.42,"stay",0],[75,"김포·강화","인천","강화","함허동천웰빙펜션",158,37.61,126.47,"stay",0],[76,"김포·강화","인천","강화","남취당의 한옥이야기",159,37.74,126.48,"stay",0],[77,"김포·강화","인천","강화","강화자연사박물관",160,37.77,126.443,"museum",0],[78,"김포·강화","인천","강화","강화역사박물관",161,37.772,126.444,"museum",1],[79,"김포·강화","인천","강화","노을자리펜션",162,37.66,126.38,"stay",0],[80,"김포·강화","인천","강화","무화과족욕체험장 도담",163,37.7,126.45,"farm",0],[81,"김포·강화","인천","강화","시리미자연놀이체험장",164,37.68,126.5,"farm",0],[82,"김포·강화","인천","강화","옥토끼우주센터",165,37.683,126.52,"museum",1],[83,"인천·안양 부근","인천","서구","국립생물자원관",168,37.564,126.637,"museum",1],[84,"인천·안양 부근","인천","남동","늘솔길공원",169,37.4,126.73,"nature",0],[85,"인천·안양 부근","인천","남동","소래습지생태공원",170,37.406,126.747,"nature",1],[86,"인천·안양 부근","인천","계양","아라마루 전망대",171,37.569,126.724,"nature",0],[87,"인천·안양 부근","인천","중구","월미테마파크",172,37.472,126.596,"theme",1],[88,"인천·안양 부근","인천","계양","인천어린이과학관",173,37.544,126.744,"museum",1],[89,"인천·안양 부근","인천","중구","파라다이스시티호텔",174,37.438,126.45,"stay",1],[90,"인천·안양 부근","인천","남동","인천대공원 목재문화체험장",175,37.456,126.752,"nature",0],[91,"인천·안양 부근","경기","부천","부천자연생태공원",176,37.489,126.808,"nature",1],[92,"인천·안양 부근","경기","부천","아인스월드",177,37.487,126.809,"theme",1],[93,"인천·안양 부근","경기","광명","광명스피돔",178,37.481,126.865,"theme",0],[94,"인천·안양 부근","경기","안양","금수강산(수영장식당)",179,37.4,126.93,"water",0],[95,"인천·안양 부근","경기","안양","안양예술공원 안양박물관",180,37.41,126.919,"museum",1],[96,"인천·안양 부근","경기","군포","초막골생태공원",181,37.345,126.92,"nature",1],[97,"인천·안양 부근","경기","의왕","의왕레일파크",182,37.315,126.962,"theme",1],[98,"인천·안양 부근","경기","시흥","한울공원 해수체험장",183,37.37,126.727,"water",0],[99,"용인·화성 부근","경기","성남","한국잡월드",186,37.393,127.112,"museum",0],[100,"용인·화성 부근","경기","성남","아이키친(판교점)",187,37.394,127.11,"farm",0],[101,"용인·화성 부근","경기","성남","현대어린이책미술관",188,37.3925,127.112,"museum",1],[102,"용인·화성 부근","경기","용인","경기도어린이박물관",189,37.265,127.11,"museum",1],[103,"용인·화성 부근","경기","용인","다이노스타",190,37.27,127.15,"indoor",0],[104,"용인·화성 부근","경기","용인","벗이미술관",191,37.24,127.18,"museum",0],[105,"용인·화성 부근","경기","용인","별아래 캠핑장",192,37.17,127.3,"stay",0],[106,"용인·화성 부근","경기","용인","청계목장",193,37.2,127.25,"farm",0],[107,"용인·화성 부근","경기","용인","용인농촌테마파크",194,37.17,127.31,"farm",0],[108,"용인·화성 부근","경기","용인","캐리비안캠프",195,37.29,127.2,"stay",0],[109,"용인·화성 부근","경기","용인","카라반베이",196,37.3,127.21,"stay",0],[110,"용인·화성 부근","경기","용인","한국민속촌",197,37.259,127.118,"theme",1],[111,"용인·화성 부근","경기","용인","한터조랑말농장",198,37.17,127.2,"farm",0],[112,"용인·화성 부근","경기","용인","한화리조트 용인베잔송 뽀로로룸",199,37.295,127.24,"stay",0],[113,"용인·화성 부근","경기","평택","별농장",200,37.04,127.02,"farm",0],[114,"용인·화성 부근","경기","평택","소풍정원 편백체험장",201,37.054,127.062,"nature",0],[115,"용인·화성 부근","경기","평택","웃다리문화촌",202,37.1,127.03,"farm",0],[116,"용인·화성 부근","경기","화성","롤링힐스호텔",203,37.201,126.828,"stay",0],[117,"용인·화성 부근","경기","화성","하내테마파크",204,37.2,126.9,"theme",0],[118,"용인·화성 부근","경기","안산","대부도 365 캠핑시티",205,37.256,126.586,"stay",0],[119,"이천·여주","경기","이천","플레이즈파크",208,37.25,127.45,"theme",0],[120,"이천·여주","경기","이천","동키동산",209,37.23,127.48,"farm",0],[121,"이천·여주","경기","이천","덕평공룡수목원",210,37.238,127.374,"theme",1],[122,"이천·여주","경기","이천","호텔미란다이천 스파플러스",211,37.277,127.439,"water",1],[123,"이천·여주","경기","여주","예크생물원",212,37.3,127.62,"animal",0],[124,"이천·여주","경기","여주","주주팜",213,37.29,127.6,"farm",0],[125,"이천·여주","경기","여주","썬밸리호텔 워터파크",214,37.25,127.6,"water",0],[126,"이천·여주","경기","여주","여주곤충박물관",215,37.33,127.64,"museum",0],[127,"원주·평창 부근","강원","원주","뮤지엄 산",218,37.416,127.823,"museum",1],[128,"원주·평창 부근","강원","원주","오크밸리 두다다쿵룸",219,37.411,127.815,"stay",1],[129,"원주·평창 부근","강원","원주","기후변화홍보관",220,37.33,127.92,"museum",0],[130,"원주·평창 부근","강원","원주","원주곤충마을",221,37.3,127.96,"museum",0],[131,"원주·평창 부근","강원","원주","돼지문화원",222,37.38,127.83,"farm",0],[132,"원주·평창 부근","강원","횡성","국립횡성숲체원",223,37.53,128.17,"nature",0],[133,"원주·평창 부근","강원","횡성","청태산자연휴양림",224,37.524,128.293,"nature",0],[134,"원주·평창 부근","강원","홍천","토탈쨈체험박물관",225,37.68,127.88,"farm",0],[135,"원주·평창 부근","강원","홍천","곰펜션",226,37.7,127.9,"stay",0],[136,"원주·평창 부근","강원","홍천","비발디파크 더파크호텔",227,37.649,127.682,"stay",1],[137,"원주·평창 부근","강원","홍천","프린세스 키즈펜션",228,37.66,127.7,"stay",0],[138,"원주·평창 부근","강원","춘천","터틀랜드",229,37.88,127.73,"indoor",0],[139,"원주·평창 부근","강원","평창","평창무이예술관",230,37.615,128.368,"museum",0],[140,"원주·평창 부근","강원","평창","허브나라농원",231,37.646,128.376,"nature",0],[141,"원주·평창 부근","강원","평창","의야지바람마을",232,37.688,128.733,"farm",0],[142,"원주·평창 부근","강원","평창","키즈캐빈",233,37.62,128.4,"stay",0],[143,"강릉·삼척 부근","강원","강릉","대관령아기동물농장",236,37.7,128.75,"farm",0],[144,"강릉·삼척 부근","강원","강릉","범브로하우스",237,37.77,128.9,"stay",0],[145,"강릉·삼척 부근","강원","강릉","바다열차",238,37.764,128.899,"theme",1],[146,"강릉·삼척 부근","강원","삼척","삼척해양레일바이크",239,37.37,129.25,"theme",0],[147,"강릉·삼척 부근","강원","삼척","쏠비치호텔&리조트 삼척",240,37.423,129.188,"stay",1],[148,"강릉·삼척 부근","강원","양양","쏠비치호텔&리조트 양양",241,38.092,128.665,"stay",1],[149,"강릉·삼척 부근","강원","속초","테라크랩팜",242,38.2,128.57,"farm",0],[150,"강릉·삼척 부근","강원","고성","델피노골프&리조트 키즈파크",243,38.215,128.497,"stay",1],[151,"천안·대전 부근","충남","천안","독립기념관",246,36.783,127.223,"museum",1],[152,"천안·대전 부근","충남","천안","충청남도안전체험관",247,36.8,127.2,"museum",0],[153,"천안·대전 부근","충남","천안","대명리조트 천안 오션파크",248,36.8,127.21,"water",0],[154,"천안·대전 부근","충남","천안","천안상록리조트",249,36.78,127.235,"stay",0],[155,"천안·대전 부근","충남","천안","천안홍대용과학관",250,36.74,127.32,"museum",0],[156,"천안·대전 부근","충남","아산","파라다이스스파 도고",251,36.76,126.886,"water",1],[157,"천안·대전 부근","충남","아산","아산환경과학공원 생태곤충원",252,36.77,127.02,"museum",0],[158,"천안·대전 부근","충남","아산","아산스파비스",253,36.82,127.05,"water",0],[159,"천안·대전 부근","대전","유성","미피월드 키즈테마파크",254,36.36,127.36,"indoor",0],[160,"천안·대전 부근","대전","유성","티놀자애니멀파크",255,36.376,127.381,"animal",0],[161,"천안·대전 부근","대전","유성","국립중앙과학관",256,36.376,127.374,"museum",1],[162,"천안·대전 부근","대전","유성","대전솔로몬로파크",257,36.378,127.336,"museum",0],[163,"천안·대전 부근","대전","유성","대전어린이회관",258,36.37,127.39,"museum",0],[164,"천안·대전 부근","충남","공주","로보카폴리 안전체험공원(공주시 안전체험공원)",259,36.45,127.12,"theme",0],[165,"천안·대전 부근","충남","공주","석장리박물관",260,36.443,127.183,"museum",1],[166,"천안·대전 부근","충남","금산","금산지구별그림책마을",261,36.1,127.48,"museum",0],[167,"태안·서산 부근","충남","태안","바람아래펜션",264,36.43,126.39,"stay",0],[168,"태안·서산 부근","충남","태안","별궁",265,36.5,126.33,"stay",0],[169,"태안·서산 부근","충남","태안","안면도쥬라기박물관",266,36.5,126.35,"museum",0],[170,"태안·서산 부근","충남","당진","당진전력문화홍보관",267,37.05,126.5,"museum",0],[171,"태안·서산 부근","충남","보령","개화예술공원",268,36.3,126.65,"museum",0],[172,"태안·서산 부근","충남","당진","삽교호놀이동산",269,36.89,126.82,"theme",1],[173,"태안·서산 부근","충남","서산","서산버드랜드",270,36.63,126.42,"museum",0],[174,"태안·서산 부근","충남","서산","클래식티피글램핑",271,36.75,126.45,"stay",0],[175,"태안·서산 부근","충남","서천","국립생태원",272,36.032,126.723,"nature",1],[176,"태안·서산 부근","충남","서천","장항스카이워크",273,36.009,126.69,"nature",0],[177,"제천·단양","충북","제천","한방생명과학관",276,37.145,128.185,"museum",0],[178,"제천·단양","충북","제천","의림지파크랜드",277,37.175,128.208,"theme",1],[179,"제천·단양","충북","단양","단양다누리아쿠아리움",278,36.984,128.365,"animal",1],[180,"제천·단양","충북","단양","단촌서원고택",279,36.94,128.33,"stay",0],[181,"제천·단양","충북","단양","만천하스카이워크",280,36.988,128.348,"theme",1],[182,"제천·단양","충북","단양","수양개 빛터널",281,37.001,128.324,"theme",0],[183,"문경·안동 부근","경북","문경","가은아자개장터",284,36.65,128.07,"theme",0],[184,"문경·안동 부근","경북","문경","문경에코랄라",285,36.66,128.07,"theme",0],[185,"문경·안동 부근","충북","괴산","괴산농업역사박물관",286,36.81,127.79,"museum",0],[186,"문경·안동 부근","충북","괴산","괴산군소금랜드",287,36.8,127.8,"indoor",0],[187,"문경·안동 부근","충북","괴산","중원대학교박물관",288,36.79,127.81,"museum",0],[188,"문경·안동 부근","충북","괴산","한지체험박물관",289,36.75,127.85,"museum",0],[189,"문경·안동 부근","경북","안동","안동문화관광단지 유교랜드",290,36.57,128.77,"theme",0],[190,"문경·안동 부근","경북","안동","전통리조트 구름에",291,36.58,128.79,"stay",0],[191,"문경·안동 부근","경북","안동","안동전통문화콘텐츠박물관",292,36.562,128.772,"museum",0],[192,"문경·안동 부근","경북","안동","안동병산서원",293,36.541,128.553,"museum",1],[193,"문경·안동 부근","경북","안동","안동하회마을",294,36.539,128.518,"museum",1],[194,"문경·안동 부근","경북","안동","목화당",295,36.56,128.73,"stay",0],[195,"대구·경주 부근","대구","달성","네이처파크",298,35.79,128.62,"animal",0],[196,"대구·경주 부근","대구","달성","스파밸리",299,35.79,128.625,"water",0],[197,"대구·경주 부근","대구","달성","호텔드포레",300,35.788,128.627,"stay",0],[198,"대구·경주 부근","대구","달성","동제미술관",301,35.7,128.45,"museum",0],[199,"대구·경주 부근","대구","달성","라온아토",302,35.7,128.42,"farm",0],[200,"대구·경주 부근","대구","달성","국립대구과학관",303,35.69,128.42,"museum",1],[201,"대구·경주 부근","대구","달성","에코테마파크 대구숲",304,35.8,128.64,"animal",0],[202,"대구·경주 부근","대구","수성","아르떼수성랜드패딩주",305,35.827,128.617,"theme",0],[203,"대구·경주 부근","대구","수성","대구어린이교통랜드",306,35.84,128.63,"theme",0],[204,"대구·경주 부근","대구","수성","대구어린이회관",307,35.85,128.644,"museum",0],[205,"대구·경주 부근","경북","성주","별앤별펜션",308,35.92,128.28,"stay",0],[206,"대구·경주 부근","경북","성주","씨스타펜션",309,35.93,128.29,"stay",0],[207,"대구·경주 부근","경북","성주","더스타펜션",310,35.91,128.27,"stay",0],[208,"대구·경주 부근","경북","경주","소소가",311,35.84,129.21,"stay",0],[209,"대구·경주 부근","경북","경주","신라부티크호텔",312,35.84,129.22,"stay",0],[210,"대구·경주 부근","경북","경주","히어로플레이파크",313,35.84,129.28,"indoor",0],[211,"대구·경주 부근","경북","경주","한화리조트 경주 뽀로로아쿠아빌리지",314,35.85,129.28,"water",0],[212,"대구·경주 부근","경북","경주","경주세계자동차박물관",315,35.84,129.29,"museum",0],[213,"대구·경주 부근","경북","경주","국립경주박물관 어린이박물관",316,35.829,129.228,"museum",1],[214,"대구·경주 부근","경북","경주","경주동궁원 버드파크",317,35.84,129.25,"animal",0],[215,"대구·경주 부근","경북","경주","잼잼키즈펜션",318,35.85,129.24,"stay",0],[216,"대구·경주 부근","경북","경주","아이놀자 풀빌라",319,35.86,129.23,"stay",0],[217,"부산·거제 부근","부산","북구","구포국수체험관",322,35.205,128.997,"farm",0],[218,"부산·거제 부근","부산","기장","국립부산과학관 새싹누리관",323,35.205,129.212,"museum",1],[219,"부산·거제 부근","부산","해운대","호텔더마크 해운대",324,35.16,129.16,"stay",0],[220,"부산·거제 부근","부산","수영","에이치에비뉴호텔 광안리점",325,35.153,129.118,"stay",0],[221,"부산·거제 부근","부산","강서","렛츠런파크 부산경남",326,35.15,128.88,"theme",0],[222,"부산·거제 부근","부산","기장","국립수산과학원 수산과학관",327,35.2,129.22,"museum",0],[223,"부산·거제 부근","부산","북구","부산솔로몬로파크",328,35.23,129.0,"museum",0],[224,"부산·거제 부근","부산","서구","송도해상케이블카",329,35.076,129.017,"theme",1],[225,"부산·거제 부근","부산","해운대","지스타더놀자",330,35.17,129.14,"indoor",0],[226,"부산·거제 부근","부산","해운대","씨라이프 부산아쿠아리움",331,35.159,129.161,"animal",1],[227,"부산·거제 부근","부산","영도","국립해양박물관",332,35.079,129.08,"museum",1],[228,"부산·거제 부근","경남","거제","거제조선해양문화관",333,34.75,128.62,"museum",0],[229,"부산·거제 부근","경남","통영","나폴리농원",334,34.85,128.4,"farm",0],[230,"부산·거제 부근","경남","통영","스카이라인루지 통영",335,34.826,128.422,"theme",1],[231,"남해·산청 부근","경남","남해","상상양떼목장 편백숲",338,34.78,127.95,"farm",0],[232,"남해·산청 부근","경남","남해","피그말리온펜션",339,34.76,127.9,"stay",0],[233,"남해·산청 부근","경남","남해","코나하우스",340,34.73,127.92,"stay",0],[234,"남해·산청 부근","경남","남해","앵강다숲마을",341,34.73,127.93,"farm",0],[235,"남해·산청 부근","경남","사천","사천첨단항공우주과학관",342,35.08,128.08,"museum",0],[236,"남해·산청 부근","경남","사천","항공우주박물관",343,35.09,128.07,"museum",0],[237,"남해·산청 부근","경남","사천","남일대해수욕장 에코라인",344,34.94,128.06,"nature",0],[238,"남해·산청 부근","경남","사천","마리나힐링펜션",345,34.95,128.05,"stay",0],[239,"남해·산청 부근","경남","산청","남사예담촌",346,35.28,127.92,"museum",0],[240,"남해·산청 부근","경남","산청","동의보감촌",347,35.4,127.88,"theme",0],[241,"남해·산청 부근","경남","산청","지리산애펜션",348,35.35,127.8,"stay",0],[242,"남해·산청 부근","경남","산청","지리산 수선사",349,35.35,127.82,"nature",0],[243,"전주·임실 부근","전북","익산","익산보석박물관",352,36.01,127.04,"museum",0],[244,"전주·임실 부근","전북","전주","완판본문화관",353,35.815,127.152,"museum",1],[245,"전주·임실 부근","전북","전주","전주초코파이체험장",354,35.815,127.153,"farm",0],[246,"전주·임실 부근","전북","전주","전주자연생태박물관",355,35.85,127.1,"museum",0],[247,"전주·임실 부근","전북","전주","농촌진흥청 농업과학관",356,35.83,127.05,"museum",0],[248,"전주·임실 부근","전북","전주","전주동물원 드림랜드",357,35.858,127.143,"animal",1],[249,"전주·임실 부근","전북","전주","랑랑랑",358,35.82,127.13,"indoor",0],[250,"전주·임실 부근","전북","전주","오감로니",359,35.83,127.12,"indoor",0],[251,"전주·임실 부근","전북","전주","전주한지박물관",360,35.86,127.08,"museum",0],[252,"전주·임실 부근","전북","정읍","칠보물테마유원지",361,35.62,126.97,"water",0],[253,"전주·임실 부근","전북","임실","임실치즈테마파크",362,35.61,127.28,"farm",1],[254,"전주·임실 부근","전북","무주","무주산책펜션",363,35.95,127.7,"stay",0],[255,"담양·함평 부근","전남","담양","판다스토리",366,35.32,126.98,"indoor",0],[256,"담양·함평 부근","전남","담양","메타프로방스",367,35.33,126.98,"theme",0],[257,"담양·함평 부근","전남","담양","씨엘펜션",368,35.34,126.99,"stay",0],[258,"담양·함평 부근","전남","담양","담양관방제림",369,35.327,126.987,"nature",1],[259,"담양·함평 부근","전남","담양","죽녹원 한옥숙박",370,35.325,126.986,"stay",0],[260,"담양·함평 부근","전남","담양","오떼떼키즈풀빌라펜션",371,35.3,127.0,"stay",0],[261,"담양·함평 부근","전남","담양","대숲사이펜션",372,35.31,126.99,"stay",0],[262,"담양·함평 부근","광주","동구","국립아시아문화전당 어린이체험관",373,35.147,126.92,"museum",1],[263,"담양·함평 부근","전남","목포","목포어린이바다과학관",374,34.79,126.38,"museum",0],[264,"담양·함평 부근","전남","신안","엘도라도리조트",375,34.99,126.15,"stay",0],[265,"담양·함평 부근","전남","함평","함평엑스포공원",376,35.07,126.52,"nature",0],[266,"담양·함평 부근","전남","함평","함평자연생태공원",377,35.03,126.6,"nature",0],[267,"순천·여수","전남","순천","순천시립그림책도서관",380,34.95,127.49,"museum",0],[268,"순천·여수","전남","순천","순천만국가정원",381,34.93,127.5,"nature",1],[269,"순천·여수","전남","순천","순천만습지",382,34.886,127.509,"nature",1],[270,"순천·여수","전남","여수","여수해양레일바이크·해상케이블카",383,34.74,127.75,"theme",0],[271,"순천·여수","전남","여수","오동도",384,34.743,127.765,"nature",1],[272,"순천·여수","전남","여수","히든베이호텔",385,34.75,127.66,"stay",0],[273,"순천·여수","전남","여수","아쿠아플라넷 여수",386,34.746,127.746,"animal",1],[274,"순천·여수","전남","여수","전라남도해양수산과학관",387,34.68,127.78,"museum",0],[275,"제주도","제주","서귀포","헬로키티아일랜드",390,33.29,126.37,"theme",0],[276,"제주도","제주","서귀포","제주마린파크",391,33.23,126.38,"animal",0],[277,"제주도","제주","서귀포","아쿠아플라넷 제주",392,33.433,126.928,"animal",1],[278,"제주도","제주","서귀포","세계자동차제주박물관",393,33.3,126.31,"museum",0],[279,"제주도","제주","서귀포","목장카페 드르쿰다",394,33.39,126.8,"farm",0],[280,"제주도","제주","서귀포","제주아올",395,33.27,126.45,"stay",0],[281,"제주도","제주","서귀포","채움키즈풀빌라",396,33.3,126.5,"stay",0],[282,"제주도","제주","서귀포","휴애리",397,33.306,126.614,"nature",1],[283,"제주도","제주","제주시","제주곰하우스",398,33.42,126.4,"stay",0],[284,"제주도","제주","제주시","제주공룡랜드",399,33.37,126.31,"theme",0],[285,"제주도","제주","제주시","노루생태관찰원",400,33.45,126.64,"animal",0],[286,"제주도","제주","제주시","절물자연휴양림",401,33.44,126.628,"nature",1],[287,"제주도","제주","제주시","풀스토리풀빌라",402,33.47,126.36,"stay",0],[288,"제주도","제주","제주시","동굴의다원 다희연",403,33.47,126.75,"farm",0],[289,"제주도","제주","제주시","데이앤",404,33.48,126.45,"stay",0],[290,"제주도","제주","제주시","두린아이 키즈펜션",405,33.45,126.35,"stay",0],[291,"제주도","제주","제주시","렛츠런파크 제주",406,33.43,126.43,"theme",0],[292,"제주도","제주","제주시","로그밸리펜션",407,33.44,126.3,"stay",0],[293,"제주도","제주","제주시","로봇스퀘어",408,33.42,126.38,"museum",0],[294,"제주도","제주","제주시","아이랑",409,33.48,126.5,"indoor",0],[295,"제주도","제주","제주시","아침미소목장",410,33.46,126.57,"farm",0],[296,"제주도","제주","제주시","에코랜드 테마파크",411,33.456,126.667,"theme",1],[297,"제주도","제주","제주시","엘리펀시아",412,33.46,126.33,"indoor",0],[298,"제주도","제주","제주시","자넷앤캐시",413,33.49,126.42,"stay",0],[299,"제주도","제주","제주시","조밤나무집",414,33.53,126.82,"stay",0],[300,"제주도","제주","제주시","제주레일바이크",415,33.45,126.8,"theme",0]];
+const THEMES={
+  museum:{n:"박물관·과학관·문화",c:"#3d6fd8"},
+  theme:{n:"테마파크·놀이",c:"#e0457b"},
+  animal:{n:"동물원·아쿠아리움",c:"#0f9fa4"},
+  farm:{n:"농장·목장·체험",c:"#c0841a"},
+  nature:{n:"자연·공원·생태",c:"#3a9a4f"},
+  water:{n:"워터파크·스파",c:"#2aa5e3"},
+  indoor:{n:"키즈카페·실내놀이",c:"#f07a2a"},
+  stay:{n:"숙소·펜션·캠핑",c:"#8a5cd6"}
+};
+const places=DATA.map(([no,zone,sido,sgg,name,page,lat,lng,t,exact])=>({no,zone,sido,sgg,name,page,lat,lng,t,exact}));
+const zones=[...new Set(places.map(p=>p.zone))];
+const state={q:"",zone:"",on:new Set(Object.keys(THEMES))};
+try{const s=JSON.parse(localStorage.getItem("kz300")||"null");if(s){state.zone=s.zone||"";if(Array.isArray(s.on)&&s.on.length)state.on=new Set(s.on.filter(k=>THEMES[k]))}}catch(e){}
+const save=()=>{try{localStorage.setItem("kz300",JSON.stringify({zone:state.zone,on:[...state.on]}))}catch(e){}};
+const pad=n=>String(n).padStart(3,"0");
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+const map=L.map("map",{zoomControl:true,preferCanvas:true,minZoom:6,maxZoom:18,attributionControl:true}).setView([36.3,127.8],7);
+function tileUrl(){const r=document.documentElement.dataset.theme;const dark=r==="dark"||(!r&&matchMedia("(prefers-color-scheme: dark)").matches);
+  return `https://{s}.basemaps.cartocdn.com/${dark?"dark_all":"rastertiles/voyager"}/{z}/{x}/{y}{r}.png`}
+const tiles=L.tileLayer(tileUrl(),{subdomains:"abcd",maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'}).addTo(map);
+matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change",()=>tiles.setUrl(tileUrl()));
+
+const renderer=L.canvas({padding:.3});
+for(const p of places){
+  const col=THEMES[p.t].c;
+  p.m=L.circleMarker([p.lat,p.lng],{renderer,radius:7,color:p.exact?"#ffffff":col,weight:p.exact?1.6:2,dashArray:p.exact?null:"2 2",fillColor:col,fillOpacity:p.exact?.95:.55});
+  p.m.bindPopup(()=>popup(p),{maxWidth:280});
+  p.m.bindTooltip(`${pad(p.no)} ${p.name}`,{direction:"top",offset:[0,-6]});
+  p.m.on("click",()=>mark(p));
+}
+function popup(p){
+  const th=THEMES[p.t];
+  const q=encodeURIComponent(`${p.name} ${p.sido} ${p.sgg}`);
+  return `<div class="pop"><span class="badge" style="--c:${th.c}"><i></i>${th.n}</span>
+  <div class="t">${pad(p.no)} · ${esc(p.name)}</div>
+  <div class="m">${esc(p.sido)} ${esc(p.sgg)} · 권역: ${esc(p.zone)}<br>가이드북 <b>${p.page}쪽</b></div>
+  ${p.exact?"":'<div class="warn">핀은 대략 위치예요. 정확한 위치는 아래 지도 앱에서 확인하세요.</div>'}
+  <div class="links"><a href="https://map.naver.com/p/search/${q}" target="_blank" rel="noopener">네이버지도</a><a href="https://map.kakao.com/?q=${q}" target="_blank" rel="noopener">카카오맵</a></div></div>`;
+}
+
+const zoneSel=document.getElementById("zone");
+zoneSel.innerHTML=`<option value="">전체 권역 (20)</option>`+zones.map((z,i)=>`<option value="${esc(z)}">${String(i+1).padStart(2,"0")} ${esc(z)}</option>`).join("");
+zoneSel.value=state.zone;
+const chips=document.getElementById("chips");
+function renderChips(base){
+  chips.innerHTML=Object.entries(THEMES).map(([k,v])=>{
+    const n=base.filter(p=>p.t===k).length;
+    return `<button type="button" class="chip" data-k="${k}" aria-pressed="${state.on.has(k)}" style="--c:${v.c}"><span class="dot"></span>${v.n}<span class="n">${n}</span></button>`}).join("");
+}
+chips.addEventListener("click",e=>{
+  const b=e.target.closest(".chip");if(!b)return;const k=b.dataset.k;
+  if(e.altKey||e.metaKey){state.on=new Set([k])}
+  else if(state.on.size===Object.keys(THEMES).length){state.on=new Set([k])}
+  else if(state.on.has(k)){state.on.delete(k);if(!state.on.size)state.on=new Set(Object.keys(THEMES))}
+  else state.on.add(k);
+  update();
+});
+document.getElementById("q").addEventListener("input",e=>{state.q=e.target.value.trim();update()});
+zoneSel.addEventListener("change",e=>{state.zone=e.target.value;update(true)});
+document.getElementById("reset").addEventListener("click",()=>{state.q="";state.zone="";state.on=new Set(Object.keys(THEMES));document.getElementById("q").value="";zoneSel.value="";update(true)});
+
+let active=null;
+function mark(p){
+  document.querySelectorAll(".item.on").forEach(x=>x.classList.remove("on"));
+  const el=document.querySelector(`.item[data-no="${p.no}"]`);
+  if(el){el.classList.add("on");if(!matchMedia("(max-width:760px)").matches)el.scrollIntoView({block:"nearest"})}
+  active=p;
+}
+const list=document.getElementById("list");
+list.addEventListener("click",e=>{
+  const b=e.target.closest(".item");if(!b)return;
+  const p=places.find(x=>x.no===+b.dataset.no);
+  map.setView([p.lat,p.lng],Math.max(map.getZoom(),12));p.m.openPopup();mark(p);
+  if(matchMedia("(max-width:760px)").matches)document.querySelector(".mapwrap").scrollIntoView({behavior:"smooth"});
+});
+const layer=L.layerGroup().addTo(map);
+function update(fit){
+  const q=state.q.toLowerCase();
+  const base=places.filter(p=>(!state.zone||p.zone===state.zone)&&(!q||`${p.name} ${p.sido} ${p.sgg} ${p.zone} ${THEMES[p.t].n} ${pad(p.no)}`.toLowerCase().includes(q)));
+  const vis=base.filter(p=>state.on.has(p.t));
+  renderChips(base);
+  layer.clearLayers();vis.forEach(p=>layer.addLayer(p.m));
+  document.getElementById("cnt").textContent=vis.length;
+  let html="",cur=null;
+  for(const p of vis){
+    if(p.zone!==cur){cur=p.zone;const n=vis.filter(x=>x.zone===cur).length;html+=`<div class="zone-h"><b>${String(zones.indexOf(cur)+1).padStart(2,"0")} ${esc(cur)}</b><span>${n}곳</span></div>`}
+    html+=`<button type="button" class="item" data-no="${p.no}"><span class="num">${pad(p.no)}</span><span class="nm"><strong>${esc(p.name)}</strong><span>${esc(p.sido)} ${esc(p.sgg)} · ${p.page}쪽</span></span><span class="tag" style="--c:${THEMES[p.t].c}" title="${THEMES[p.t].n}"></span></button>`;
+  }
+  list.innerHTML=html||`<div class="empty">조건에 맞는 장소가 없어요. 검색어를 지우거나 필터를 초기화해 보세요.</div>`;
+  if(fit&&vis.length){map.fitBounds(L.latLngBounds(vis.map(p=>[p.lat,p.lng])).pad(.15),{maxZoom:11})}
+  save();
+}
+update(true);
+</script>
+</body>
+</html>
