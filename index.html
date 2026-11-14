@@ -2,6 +2,7 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
+<meta name="referrer" content="strict-origin-when-cross-origin">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta property="og:title" content="키즈존 300 지도">
 <meta property="og:description" content="아이와 가볼 만한 국내 여행지 300곳을 테마별로 보는 지도">
@@ -141,10 +142,7 @@ const pad=n=>String(n).padStart(3,"0");
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
 const map=L.map("map",{zoomControl:true,preferCanvas:true,minZoom:6,maxZoom:18,attributionControl:true}).setView([36.3,127.8],7);
-function tileUrl(){const r=document.documentElement.dataset.theme;const dark=r==="dark"||(!r&&matchMedia("(prefers-color-scheme: dark)").matches);
-  return `https://{s}.basemaps.cartocdn.com/${dark?"dark_all":"rastertiles/voyager"}/{z}/{x}/{y}{r}.png`}
-const tiles=L.tileLayer(tileUrl(),{subdomains:"abcd",maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'}).addTo(map);
-matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change",()=>tiles.setUrl(tileUrl()));
+const tiles=L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}).addTo(map);
 
 const renderer=L.canvas({padding:.3});
 for(const p of places){
