@@ -151,7 +151,7 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",
 const inKorea=p=>p.lng>124&&p.lng<132&&p.lat>32.5&&p.lat<39;
 
 // 지도 엔진: 카카오 키가 있으면 카카오맵, 없거나 실패하면 OpenStreetMap(Leaflet)
-const KAKAO_KEY="";
+const KAKAO_KEY="1a7f2cc0585834753bd357b39964fe9f";
 let MAP=null;
 function leafletMap(){
   const map=L.map("map",{zoomControl:true,preferCanvas:true,minZoom:5,maxZoom:18,attributionControl:true}).setView([36.3,127.8],7);
