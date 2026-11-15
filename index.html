@@ -196,13 +196,14 @@ function kakaoMap(){
   };
 }
 function startMap(){
-  const useLeaflet=()=>{if(MAP)return;MAP=leafletMap();update(true)};
+  const useLeaflet=why=>{if(MAP)return;MAP=leafletMap();update(true);
+    if(why){const d=document.createElement("div");d.style.cssText="position:absolute;left:8px;right:8px;top:8px;z-index:1000;background:#fff8e6;border:1px solid #e0a400;color:#5a4300;padding:6px 10px;border-radius:8px;font:12px sans-serif";d.textContent="카카오맵 연결 실패("+why+"). 카카오 콘솔에서 Web 도메인 등록과 카카오맵 사용 설정을 확인해 주세요.";document.getElementById("map").parentNode.appendChild(d)}};
   if(!KAKAO_KEY)return useLeaflet();
   const sc=document.createElement("script");
   sc.src="https://dapi.kakao.com/v2/maps/sdk.js?autoload=false&appkey="+encodeURIComponent(KAKAO_KEY);
-  const t=setTimeout(useLeaflet,8000);
-  sc.onload=()=>kakao.maps.load(()=>{clearTimeout(t);if(MAP)return;try{document.getElementById("map").innerHTML="";MAP=kakaoMap();document.body.classList.add("kakao");update(true)}catch(e){console.error(e);useLeaflet()}});
-  sc.onerror=()=>{clearTimeout(t);useLeaflet()};
+  const t=setTimeout(()=>useLeaflet("응답 없음"),8000);
+  sc.onload=()=>kakao.maps.load(()=>{clearTimeout(t);if(MAP)return;try{document.getElementById("map").innerHTML="";MAP=kakaoMap();document.body.classList.add("kakao");update(true)}catch(e){console.error(e);useLeaflet("오류: "+e.message)}});
+  sc.onerror=()=>{clearTimeout(t);useLeaflet("키 또는 도메인 거부")};
   document.head.appendChild(sc);
 }
 function popup(p){
