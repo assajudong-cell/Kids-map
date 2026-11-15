@@ -66,6 +66,8 @@ select{flex:1;min-width:0;padding:9px 10px;border-radius:10px;border:1px solid v
 .leaflet-container{font-family:var(--f-body);background:var(--sea)}
 .leaflet-popup-content-wrapper,.leaflet-popup-tip{background:var(--panel);color:var(--ink);box-shadow:0 6px 24px rgba(0,0,0,.18)}
 .leaflet-popup-content{margin:14px 16px;min-width:200px}
+.kpop{position:relative;background:var(--panel);color:var(--ink,inherit);border-radius:12px;padding:12px 14px;width:260px;box-shadow:0 6px 24px rgba(0,0,0,.22);font-size:13px}
+.kpop .kx{position:absolute;top:4px;right:6px;border:0;background:none;font-size:20px;line-height:1;cursor:pointer;color:var(--muted)}
 .pop .t{font-family:var(--f-display);font-size:17px;line-height:1.3;margin:2px 0 4px}
 .pop .m{color:var(--muted);font-size:12px;line-height:1.6}
 .pop .badge{display:inline-flex;gap:5px;align-items:center;font-size:11.5px;padding:2px 8px;border-radius:999px;background:var(--chip)}
@@ -148,16 +150,60 @@ const save=()=>{try{localStorage.setItem("kzmap2",JSON.stringify({sido:state.sid
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const inKorea=p=>p.lng>124&&p.lng<132&&p.lat>32.5&&p.lat<39;
 
-const map=L.map("map",{zoomControl:true,preferCanvas:true,minZoom:5,maxZoom:18,attributionControl:true}).setView([36.3,127.8],7);
-L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}).addTo(map);
-
-const renderer=L.canvas({padding:.3});
-for(const p of places){
-  const col=THEMES[p.t].c;
-  p.m=L.circleMarker([p.lat,p.lng],{renderer,radius:7,color:p.exact?"#ffffff":col,weight:p.exact?1.6:2,dashArray:p.exact?null:"2 2",fillColor:col,fillOpacity:p.exact?.95:.55});
-  p.m.bindPopup(()=>popup(p),{maxWidth:290});
-  p.m.bindTooltip(p.name,{direction:"top",offset:[0,-6]});
-  p.m.on("click",()=>mark(p));
+// 지도 엔진: 카카오 키가 있으면 카카오맵, 없거나 실패하면 OpenStreetMap(Leaflet)
+const KAKAO_KEY="";
+let MAP=null;
+function leafletMap(){
+  const map=L.map("map",{zoomControl:true,preferCanvas:true,minZoom:5,maxZoom:18,attributionControl:true}).setView([36.3,127.8],7);
+  L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19,attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}).addTo(map);
+  const renderer=L.canvas({padding:.3}), layer=L.layerGroup().addTo(map);
+  for(const p of places){
+    const col=THEMES[p.t].c;
+    p.m=L.circleMarker([p.lat,p.lng],{renderer,radius:7,color:p.exact?"#ffffff":col,weight:p.exact?1.6:2,dashArray:p.exact?null:"2 2",fillColor:col,fillOpacity:p.exact?.95:.55});
+    p.m.bindPopup(()=>popup(p),{maxWidth:290});
+    p.m.bindTooltip(p.name,{direction:"top",offset:[0,-6]});
+    p.m.on("click",()=>mark(p));
+  }
+  return{
+    show(vis){layer.clearLayers();vis.forEach(p=>layer.addLayer(p.m))},
+    fit(ps){map.fitBounds(L.latLngBounds(ps.map(p=>[p.lat,p.lng])).pad(.15),{maxZoom:11})},
+    focus(p){map.setView([p.lat,p.lng],Math.max(map.getZoom(),12));p.m.openPopup()}
+  };
+}
+function kakaoMap(){
+  const K=kakao.maps, el=document.getElementById("map");
+  const map=new K.Map(el,{center:new K.LatLng(36.3,127.8),level:12});
+  map.addControl(new K.ZoomControl(),K.ControlPosition.RIGHT);
+  const icon={};
+  const img=(t,exact)=>{const k=t+exact;if(icon[k])return icon[k];const c=THEMES[t].c;
+    const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"><circle cx="9" cy="9" r="7" fill="${c}" fill-opacity="${exact?.95:.55}" stroke="${exact?"#fff":c}" stroke-width="2" ${exact?"":'stroke-dasharray="2 2"'}/></svg>`;
+    return icon[k]=new K.MarkerImage("data:image/svg+xml;charset=utf-8,"+encodeURIComponent(svg),new K.Size(18,18),{offset:new K.Point(9,9)})};
+  const ov=new K.CustomOverlay({clickable:true,yAnchor:1.08,zIndex:5});
+  const open=p=>{const box=document.createElement("div");box.className="kpop";
+    box.innerHTML=`<button type="button" class="kx" aria-label="닫기">×</button>`+popup(p);
+    box.querySelector(".kx").onclick=()=>ov.setMap(null);
+    ov.setContent(box);ov.setPosition(p.k.getPosition());ov.setMap(map)};
+  for(const p of places){
+    p.k=new K.Marker({position:new K.LatLng(p.lat,p.lng),image:img(p.t,p.exact),title:p.name});
+    K.event.addListener(p.k,"click",()=>{open(p);mark(p)});
+  }
+  K.event.addListener(map,"click",()=>ov.setMap(null));
+  let on=[];
+  return{
+    show(vis){on.forEach(p=>p.k.setMap(null));on=vis;vis.forEach(p=>p.k.setMap(map));ov.setMap(null)},
+    fit(ps){const b=new K.LatLngBounds();ps.forEach(p=>b.extend(new K.LatLng(p.lat,p.lng)));map.setBounds(b,40,40,40,40);if(map.getLevel()<6)map.setLevel(6)},
+    focus(p){map.setCenter(p.k.getPosition());if(map.getLevel()>5)map.setLevel(5);open(p)}
+  };
+}
+function startMap(){
+  const useLeaflet=()=>{if(MAP)return;MAP=leafletMap();update(true)};
+  if(!KAKAO_KEY)return useLeaflet();
+  const sc=document.createElement("script");
+  sc.src="https://dapi.kakao.com/v2/maps/sdk.js?autoload=false&appkey="+encodeURIComponent(KAKAO_KEY);
+  const t=setTimeout(useLeaflet,8000);
+  sc.onload=()=>kakao.maps.load(()=>{clearTimeout(t);if(MAP)return;try{document.getElementById("map").innerHTML="";MAP=kakaoMap();document.body.classList.add("kakao");update(true)}catch(e){console.error(e);useLeaflet()}});
+  sc.onerror=()=>{clearTimeout(t);useLeaflet()};
+  document.head.appendChild(sc);
 }
 function popup(p){
   const th=THEMES[p.t];
@@ -202,16 +248,15 @@ const list=document.getElementById("list");
 list.addEventListener("click",e=>{
   const b=e.target.closest(".item");if(!b)return;
   const p=places[+b.dataset.id];
-  map.setView([p.lat,p.lng],Math.max(map.getZoom(),12));p.m.openPopup();mark(p);
+  if(MAP)MAP.focus(p);mark(p);
   if(matchMedia("(max-width:760px)").matches)document.querySelector(".mapwrap").scrollIntoView({behavior:"smooth"});
 });
-const layer=L.layerGroup().addTo(map);
 function update(fit){
   const q=state.q.toLowerCase(), ti=state.topic===""?-1:+state.topic;
   const base=places.filter(p=>(!state.sido||p.sido===state.sido)&&(ti<0||p.tp.includes(ti))&&(!q||`${p.name} ${p.sido} ${p.sgg} ${THEMES[p.t].n} ${p.tp.map(i=>TOPICS[i]).join(" ")}`.toLowerCase().includes(q)));
   const vis=base.filter(p=>state.on.has(p.t));
   renderChips(base);
-  layer.clearLayers();vis.forEach(p=>layer.addLayer(p.m));
+  if(MAP)MAP.show(vis);
   document.getElementById("cnt").textContent=vis.length;
   const groups=sidos.map(s=>[s,vis.filter(p=>p.sido===s).sort((a,b)=>a.sgg.localeCompare(b.sgg,"ko")||a.name.localeCompare(b.name,"ko"))]).filter(g=>g[1].length);
   let html="";
@@ -221,10 +266,11 @@ function update(fit){
   }
   list.innerHTML=html||`<div class="empty">조건에 맞는 장소가 없어요. 검색어를 지우거나 필터를 초기화해 보세요.</div>`;
   const fitTo=vis.filter(inKorea);
-  if(fit&&fitTo.length){map.fitBounds(L.latLngBounds(fitTo.map(p=>[p.lat,p.lng])).pad(.15),{maxZoom:11})}
+  if(MAP&&fit&&fitTo.length)MAP.fit(fitTo);
   save();
 }
 update(true);
+startMap();
 </script>
 </body>
 </html>
